@@ -6,6 +6,7 @@
 .Ruserdata
 .httr-oauth
 .quarto
+.trend.R
 *.dbf
 *.doc*
 *.gddoc

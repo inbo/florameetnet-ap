@@ -17,5 +17,6 @@ spelling:
   ignore:
   - .github
   - LICENSE.md
+  - README.md
 pak: []
 gha_install: []
