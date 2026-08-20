@@ -1,0 +1,29 @@
+<meta charset="utf-8" />
+$if(quarto-version)$
+<meta name="generator" content="quarto-$quarto-version$" />
+$else$
+<meta name="generator" content="quarto" />
+$endif$
+
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes" />
+$for(flandersqmd.author)$
+<meta name="author" content="$flandersqmd.author.name.given$ $flandersqmd.author.name.family$" />
+$endfor$
+<style>
+$entitycss$
+</style>
+$if(watermark)$
+<style type="text/css">
+#watermark{
+  position: fixed;
+  top: 50%;
+  right: 0%;
+  z-index: 999;
+  transform: rotate(-90deg);
+  opacity: 0.2;
+  font-size: 5em;
+  text-align: center;
+}
+</style>
+$endif$
+<title>$pagetitle$$if(title-prefix)$ – $title-prefix$$endif$</title>
