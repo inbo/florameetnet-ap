@@ -1,0 +1,30 @@
+---
+toc: false
+---
+
+```{r}
+#| include: false
+
+library(targets)
+library(ggplot2)
+```
+
+
+```{r}
+#| eval: false
+
+tar_load(meetnetdesign)
+table(meetnetdesign$group, meetnetdesign$cyclus_jaar, meetnetdesign$cyclus)
+```
+
+```{r}
+tar_load(svydata_ap_clustered)
+```
+
+
+
+
+
+# Resultaten
+
+De volledige lijst omvat `r length(unique(svydata_ap_clustered$clustertaxon))` taxa.
