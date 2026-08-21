@@ -87,5 +87,8 @@ book:
   - abstract.md
   - aanbevelingen.md
   - inleiding.md
+  - methoden.Rmd
+  - resultaten.Rmd
+  - discussie.Rmd
   - referenties.md
 bibliography: references.bib
