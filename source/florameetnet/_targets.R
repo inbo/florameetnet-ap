@@ -111,10 +111,8 @@ list(
   tar_target(
     absolute_wijziging_plot,
     plot_change(
-      change_results,
-      file.path(git_root, "media/absolute_wijziging.png")
-    ),
-    format = "file"
+      change_results
+    )
   ),
   # ---- status & change: by stratum ---------------------------------------
   tar_target(
@@ -128,10 +126,8 @@ list(
   tar_target(
     absolute_wijziging_stratum_plot,
     plot_change_stratum(
-      change_stratum_results,
-      file.path(git_root, "media/absolute_wijziging_stratum.png")
-    ),
-    format = "file"
+      change_stratum_results
+    )
   ),
   # ---- relative change (ratio, species run in parallel via mirai) -------
   tar_target(
@@ -145,17 +141,13 @@ list(
   tar_target(
     relatieve_wijziging_stratum_plot,
     plot_rel_change_stratum(
-      rel_change_results_stratum,
-      file.path(git_root, "media/relatieve_wijziging_stratum.png")
-    ),
-    format = "file"
+      rel_change_results_stratum
+    )
   ),
   tar_target(
     relatieve_wijziging_plot,
     plot_rel_change(
-      rel_change_results,
-      file.path(git_root, "media/relatieve_wijziging.png")
-    ),
-    format = "file"
+      rel_change_results
+    )
   )
 )

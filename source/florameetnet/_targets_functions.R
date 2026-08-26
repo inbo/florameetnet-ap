@@ -10,13 +10,17 @@ read_clustering <- function(path) {
     tibble::as_tibble()
 }
 
-build_cyclus_lookup <- function(cycle_length = 5, n_cycles = 2) {
-  # cyclus 1: jaar 1-5 = 2015-2019
-  # cyclus 2: jaar 1-5 = 2020-2023, 2025 (no survey year in 2024)
+build_cyclus_lookup <- function(
+    cycle_length = 5, n_cycles = 2,
+    start_year = 2016
+) {
+  # cyclus 1: jaar 1-5 = 2016-2020
+  # cyclus 2: jaar 1-5 = 2021-2025
+  years <- start_year + (seq_len(cycle_length * n_cycles) - 1)
   tibble::tibble(
     cyclus = factor(rep(seq_len(n_cycles), each = cycle_length)),
     cyclus_jaar = factor(rep(seq_len(cycle_length), times = n_cycles)),
-    jaar = c(2015:2023, 2025)
+    jaar = years
   )
 }
 
@@ -62,9 +66,10 @@ build_meetnetdesign <- function(meetnetdesign_raw, popsizes, samplesizes) {
 
 # ---- Florabank occurrence data ---------------------------------------------
 
-fetch_florabank_data <- function(starting_year = 2015,
-                                  ifbl_resolution = "1km-by-1km",
-                                  taxongroup = "Vaatplanten") {
+fetch_florabank_data <- function(
+    starting_year = 2015,
+    ifbl_resolution = "1km-by-1km",
+    taxongroup = "Vaatplanten") {
   db_connectie <- inbodb::connect_inbo_dbase("D0152_00_Flora")
   on.exit(inbodb::dbDisconnect(db_connectie), add = TRUE)
 
@@ -183,23 +188,32 @@ get_all_status <- function(design, species) {
 
 get_change <- function(design, x) {
   form_model <- stats::as.formula(paste0("`", x, "` ~ cyclus"))
-  mod_out <- ReGenesees::svystatB(design = design, model = form_model, conf.int = TRUE)
+  mod_out <- ReGenesees::svystatB(
+    design = design, model = form_model, conf.int = TRUE
+  )
   # row 1 = Intercept, row 2 = cyclus2 dummy (the change estimate)
   change_row <- mod_out[2, ]
   data.frame(
     species = x,
-    change = change_row[[1]], se = change_row[[2]],
-    lcl = change_row[[3]], ucl = change_row[[4]]
+    change = change_row[[1]],
+    se = change_row[[2]],
+    lcl = change_row[[3]],
+    ucl = change_row[[4]]
   )
 }
 
-classify_significance <- function(df) {
+classify_abs_change <- function(df) {
   dplyr::mutate(
     df,
-    significance = dplyr::case_when(
-      lcl < 0 & ucl > 0 ~ "niet significant",
+    abs_significance = dplyr::case_when(
+      lcl <= 0 & ucl >= 0 ~ "niet significant",
       ucl < 0            ~ "significante daling",
       lcl > 0            ~ "significante stijging"
+    ),
+    abs_change_type = dplyr::case_when(
+      round(change, 8) > 0 ~ "Stijging",
+      round(change, 8) < 0 ~ "Daling",
+      round(change, 8) == 0 ~ "Geen wijziging"
     )
   )
 }
@@ -207,26 +221,26 @@ classify_significance <- function(df) {
 get_all_change <- function(design, species) {
   purrr::map(species, \(x) get_change(design, x)) |>
     purrr::list_rbind() |>
-    classify_significance()
+    classify_abs_change()
 }
 
-plot_change <- function(change_results, path) {
-  dir.create(dirname(path), showWarnings = FALSE, recursive = TRUE)
+plot_change <- function(change_results) {
 
   p <- change_results |>
-    dplyr::filter(significance != "niet significant") |>
+    dplyr::filter(abs_significance != "niet significant") |>
     dplyr::mutate(species = stats::reorder(species, change)) |>
     ggplot2::ggplot() +
     ggplot2::geom_vline(xintercept = 0) +
     ggplot2::geom_pointrange(
       ggplot2::aes(
-        x = change, xmin = lcl, xmax = ucl, y = species, colour = significance)
+        x = change, xmin = lcl, xmax = ucl, y = species,
+        colour = abs_significance
+      )
     ) +
     ggplot2::scale_x_continuous(labels = scales::percent_format()) +
     ggplot2::labs(x = "Absolute wijziging")
 
-  ggplot2::ggsave(path, p, height = 20, width = 10, dpi = 300)
-  path
+  return(p)
 }
 
 # ---- Status & change: by stratum -------------------------------------------
@@ -261,38 +275,40 @@ get_change_stratum <- function(design, x) {
   data.frame(
     species = x,
     group = sub("^group(.*):cyclus2$", "\\1", change_rows$term),
-    change = change_rows[[1]], se = change_rows[[2]],
-    lcl = change_rows[[3]], ucl = change_rows[[4]]
+    change = change_rows[[1]],
+    se = change_rows[[2]],
+    lcl = change_rows[[3]],
+    ucl = change_rows[[4]]
   )
 }
 
 get_all_change_stratum <- function(design, species) {
   purrr::map(species, \(x) get_change_stratum(design, x)) |>
     purrr::list_rbind() |>
-    classify_significance()
+    classify_abs_change()
 }
 
-plot_change_stratum <- function(change_stratum_results, path) {
-  dir.create(dirname(path), showWarnings = FALSE, recursive = TRUE)
-
+plot_change_stratum <- function(change_stratum_results) {
   p <- change_stratum_results |>
     dplyr::filter(
-      significance != "niet significant", !is.na(significance),
+      abs_significance != "niet significant",
+      !is.na(abs_significance),
       abs(change) > 1e-3
     ) |>
     dplyr::mutate(species = tidytext::reorder_within(species, change, group)) |>
     ggplot2::ggplot() +
     ggplot2::geom_vline(xintercept = 0, linetype = "dashed", color = "gray50") +
     ggplot2::geom_pointrange(
-      ggplot2::aes(x = change, xmin = lcl, xmax = ucl, y = species, colour = significance)
+      ggplot2::aes(
+        x = change, xmin = lcl, xmax = ucl, y = species,
+        colour = abs_significance
+      )
     ) +
     ggplot2::scale_x_continuous(labels = scales::percent_format()) +
     tidytext::scale_y_reordered() +
     ggplot2::facet_wrap(~group, scales = "free", space = "free_y") +
     ggplot2::labs(x = "Absolute wijziging", y = "Soort")
-
-  ggplot2::ggsave(path, p, height = 20, width = 10, dpi = 300)
-  path
+  return(p)
 }
 
 # ---- Relative change (ratio, delta method on log scale) -------------------
@@ -361,21 +377,27 @@ get_rel_change <- function(design, x) {
   )
 }
 
-classify_special_cases <- function(df) {
+classify_rel_changes <- function(df) {
   dplyr::mutate(
     df,
-    significance = dplyr::case_when(
-      lcl < 0 & ucl > 0 ~ "niet significant",
+    rel_significance = dplyr::case_when(
+      # New colonizations
+      is.infinite(rel_change)         ~ "significante stijging",
+      # Exact same sites      lcl < 0 & ucl > 0 ~ "niet significant"
+      rel_change == 0 & se == 0   ~ "niet significant",
+      lcl <= 0 & ucl >= 0     ~ "niet significant",
       ucl < 0            ~ "significante daling",
       lcl > 0            ~ "significante stijging"
     ),
-    special_cases = dplyr::case_when(
-      rel_change == -1 & se == 0  ~ "Soort verdwenen",
+    rel_change_type = dplyr::case_when(
+      rel_change == -1 & se == 0  ~ "Enkel aanwezig in eerste survey",
       is.na(rel_change)           ~ "Afwezig in beide surveys",
       is.infinite(rel_change)     ~ "Enkel aanwezig in tweede survey",
       rel_change == 0 & se > 0    ~ "Geen netto verandering, wel andere hokken",
       rel_change < 0              ~ "Daling",
       rel_change > 0              ~ "Stijging",
+      rel_change == 0 & se == 0   ~
+        "Aanwezig in beide surveys in exact dezelfde hokken",
       TRUE                        ~ "Andere gevallen"
     )
   )
@@ -398,7 +420,7 @@ get_all_rel_change_stratum <- function(design, species, n_workers = 6) {
     )
   ) |>
     purrr::list_rbind() |>
-    classify_special_cases()
+    classify_rel_changes()
 }
 
 get_all_rel_change <- function(design, species, n_workers = 6) {
@@ -415,16 +437,15 @@ get_all_rel_change <- function(design, species, n_workers = 6) {
     )
   ) |>
     purrr::list_rbind() |>
-    classify_special_cases()
+    classify_rel_changes()
 }
 
-plot_rel_change_stratum <- function(rel_change_results_stratum, path) {
-  dir.create(dirname(path), showWarnings = FALSE, recursive = TRUE)
+plot_rel_change_stratum <- function(rel_change_results_stratum) {
 
   p <- rel_change_results_stratum |>
     dplyr::filter(
-      significance != "niet significant",
-      special_cases %in% c("Daling", "Stijging")
+      rel_significance != "niet significant",
+      rel_change_type %in% c("Daling", "Stijging")
     ) |>
     dplyr::mutate(
       ratio = rel_change + 1, lcl_ratio = lcl + 1, ucl_ratio = ucl + 1,
@@ -434,7 +455,7 @@ plot_rel_change_stratum <- function(rel_change_results_stratum, path) {
     ggplot2::geom_vline(xintercept = 1, linetype = "dashed", color = "gray50") +
     ggplot2::geom_pointrange(
       ggplot2::aes(x = ratio, xmin = lcl_ratio, xmax = ucl_ratio, y = species,
-                   colour = significance)
+                   colour = rel_significance)
     ) +
     ggplot2::scale_x_log10(
       name = "Relatieve wijziging (Index)",
@@ -446,17 +467,14 @@ plot_rel_change_stratum <- function(rel_change_results_stratum, path) {
     ggplot2::facet_wrap(~group, scales = "free", space = "free_y") +
     ggplot2::labs(x = "Relatieve wijziging", y = "Soort")
 
-  ggplot2::ggsave(path, p, height = 15, width = 10, dpi = 300)
-  path
+  return(p)
 }
 
-plot_rel_change <- function(rel_change_results, path) {
-  dir.create(dirname(path), showWarnings = FALSE, recursive = TRUE)
-
+plot_rel_change <- function(rel_change_results) {
   p <- rel_change_results |>
     dplyr::filter(
-      significance != "niet significant",
-      special_cases %in% c("Daling", "Stijging")
+      rel_significance != "niet significant",
+      rel_change_type %in% c("Daling", "Stijging")
     ) |>
     dplyr::mutate(
       ratio = rel_change + 1, lcl_ratio = lcl + 1, ucl_ratio = ucl + 1,
@@ -466,7 +484,7 @@ plot_rel_change <- function(rel_change_results, path) {
     ggplot2::geom_vline(xintercept = 1, linetype = "dashed", color = "gray50") +
     ggplot2::geom_pointrange(
       ggplot2::aes(x = ratio, xmin = lcl_ratio, xmax = ucl_ratio, y = species,
-                   colour = significance)
+                   colour = rel_significance)
     ) +
     ggplot2::scale_x_log10(
       name = "Relatieve wijziging (Index)",
@@ -476,6 +494,5 @@ plot_rel_change <- function(rel_change_results, path) {
     ) +
     ggplot2::labs(x = "Relatieve wijziging", y = "Soort")
 
-  ggplot2::ggsave(path, p, height = 20, width = 10, dpi = 300)
-  path
+  return(p)
 }
