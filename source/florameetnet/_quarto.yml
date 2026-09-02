@@ -19,7 +19,9 @@ execute:
   cache: false
 format:
   flandersqmd-book-html: default
-  flandersqmd-book-pdf: default
+  flandersqmd-book-pdf:
+    fig-pos: "H"
+    tbl-pos: "H"
 lang: nl-BE
 flandersqmd:
   entity: INBO
