@@ -60,6 +60,7 @@ svydata_ap |>
 ```
 
 ```{r}
+#| out-width: "100%"
 svydata_n_taxa <- svydata_clustered |>
   summarize(
     n_taxa = n_distinct(clustertaxon[!is.na(clustertaxon)]),
@@ -106,6 +107,13 @@ svydata_n_taxa |>
     columns = rel_verschil,
     decimals = 2,
     use_seps = FALSE
+  ) |>
+  gt::tab_options(
+    table.font.size = "small",
+    data_row.padding = gt::px(3),
+    row_group.font.weight = "bold",
+    row_group.padding = gt::px(4),
+    latex.use_longtable = TRUE
   )
 ```
 
@@ -113,6 +121,7 @@ svydata_n_taxa |>
 ```{r}
 #| label: fig-maanden
 #| fig-cap: Maanden waarin de waarnemingen werden gedaan (mediane waarden) in beide cycli.
+#| out-width: "100%"
 
 svydata_clustered |>
   select(group, ifbl, cyclus, maand) |>
@@ -148,6 +157,11 @@ tar_load(rel_change_results)
 ```{r}
 #| label: fig-status-estimates
 #| fig-cap: Kans op voorkomen van soorten in beide cycli. De diagonale lijn is de 1:1 lijn. De horizontale en vertikale lijnen zijn de 95% betrouwbaarheidsintervallen. 
+#| out-width: "100%"
+#| fig-width: 9
+#| fig-height: 9
+
+
 cyclus_results |>
   pivot_wider(
     id_cols = species,
@@ -219,6 +233,8 @@ awp_plot_height <- 2 + (length(unique(awp@data$species)) * 0.125)
 #| label: fig-absolute-wijziging
 #| fig-cap: Absolute wijzigingen van taxa. We tonen enkel significante absolute wijzigingen.
 #| fig-height: !expr awp_plot_height
+#| out-width: "100%"
+#| fig-width: 9
 
 awp
 ```
@@ -232,6 +248,8 @@ rwp_plot_height <- 2 + (length(unique(rwp@data$species)) * 0.125)
 #| label: fig-relatieve-wijziging
 #| fig-cap: Relatieve wijzigingen van taxa. We tonen enkel significante relatieve wijzigingen, met weglating van taxa die enkel in één van beide surveys waargenomen werden.
 #| fig-height: !expr rwp_plot_height
+#| out-width: "100%"
+#| fig-width: 9
 
 rwp
 ```
@@ -242,6 +260,9 @@ rwp
 ```{r}
 #| label: fig-status-estimates-stratum
 #| fig-cap: Kans op voorkomen van soorten in beide cycli. De diagonale lijn is de 1:1 lijn. De horizontale en vertikale lijnen zijn de 95% betrouwbaarheidsintervallen. 
+#| out-width: "100%"
+#| fig-width: 9
+#| fig-height: 9
 
 tar_load(cyclus_stratum_results)
 
@@ -309,6 +330,8 @@ src <- purrr::map2_chr(seq_along(awsp$plots), awsp$plot_height, function(i, h) {
     "```{r}",
     "#| echo: false",
     "#| fig-height: {{h}}",
+    "#| fig-width: 9",
+    "#| out-width: '100%'",
     "print(awsp$plots[[{{i}}]])",
     "```",
     ""
@@ -345,6 +368,8 @@ src <- purrr::map2_chr(seq_along(rwsp$plots), rwsp$plot_height, function(i, h) {
       "```{r}",
       "#| echo: false",
       "#| fig-height: {{h}}",
+      "#| fig-width: 9",
+      "#| out-width: '100%'",
       "print(rwsp$plots[[{{i}}]])",
       "```",
       ""

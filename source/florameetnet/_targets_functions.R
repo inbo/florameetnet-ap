@@ -476,7 +476,8 @@ plot_rel_change_stratum <- function(rel_change_results_stratum) {
   p <- rel_change_results_stratum |>
     dplyr::filter(
       rel_significance != "niet significant",
-      rel_change_type %in% c("Daling", "Stijging")
+      rel_change_type %in% c("Daling", "Stijging"),
+      se > 0
     ) |>
     dplyr::mutate(
       ratio = rel_change + 1, lcl_ratio = lcl + 1, ucl_ratio = ucl + 1
@@ -520,7 +521,8 @@ plot_rel_change <- function(rel_change_results) {
   p <- rel_change_results |>
     dplyr::filter(
       rel_significance != "niet significant",
-      rel_change_type %in% c("Daling", "Stijging")
+      rel_change_type %in% c("Daling", "Stijging"),
+      se > 0
     ) |>
     dplyr::mutate(
       ratio = rel_change + 1, lcl_ratio = lcl + 1, ucl_ratio = ucl + 1,
