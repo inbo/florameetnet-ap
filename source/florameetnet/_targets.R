@@ -11,6 +11,9 @@ tar_option_set(
 
 tar_source("_targets_functions.R")
 
+inaccessible_ifbl <- c("b4-45-31", "c7-47-42")
+richness_threshold <- 50
+
 list(
   tar_target(
     git_root,
@@ -38,8 +41,12 @@ list(
     meetnetdesign,
     build_meetnetdesign(meetnetdesign_raw, popsizes, samplesizes)
   ),
+  tar_target(
+    inaccessible,
+    inaccessible_ifbl
+  ),
   # If the underlying data change, invalidate this target
-  tar_target(meetnet_data, fetch_florabank_data()),
+  tar_target(florabank_data, fetch_florabank_data()),
   tar_target(hokken, fetch_florabank_hokken()),
   tar_target(
     kmhokken,
@@ -88,22 +95,35 @@ list(
       facet_wrap(~ group) +
       theme_minimal()
   ),
-
-  tar_target(svydata_ap, join_survey_data(meetnetdesign, meetnet_data)),
+  tar_target(
+    svydata_ap,
+    join_survey_data(meetnetdesign, florabank_data)
+  ),
+  tar_target(
+    svydata_filtered,
+    filter_survey_data(
+      svydata = svydata_ap,
+      ifbl_remove = inaccessible,
+      min_n_taxa = richness_threshold
+    )
+  ),
   # ---- taxon clustering (subspecies/varieties -> main species) --------
-  tar_target(soortenlijst, build_soortenlijst(svydata_ap)),
+  tar_target(soortenlijst, build_soortenlijst(svydata_filtered)),
   tar_target(names_clustered, cluster_taxon_names(soortenlijst)),
-  tar_target(svydata_ap_clustered, build_svydata_clustered(svydata_ap, names_clustered)),
-  tar_target(svydata_ap_clus_wide, build_svydata_wide(svydata_ap_clustered)),
-  tar_target(species, get_species_list(svydata_ap_clustered)),
+  tar_target(
+    svydata_clustered,
+    build_svydata_clustered(svydata_filtered, names_clustered)
+  ),
+  tar_target(svydata_clus_wide, build_svydata_wide(svydata_clustered)),
+  tar_target(species, get_species_list(svydata_clustered)),
   # ---- survey designs ---------------------------------------------------
   tar_target(
     design_weight_panel,
-    build_survey_design(svydata_ap_clus_wide, "weight_panel")
+    build_survey_design(svydata_clus_wide, "weight_panel")
   ),
   tar_target(
     design_weight_cyclus,
-    build_survey_design(svydata_ap_clus_wide, "weight_cyclus")
+    build_survey_design(svydata_clus_wide, "weight_cyclus")
   ),
   # ---- status & change: overall -----------------------------------------
   tar_target(cyclus_results, get_all_status(design_weight_cyclus, species)),

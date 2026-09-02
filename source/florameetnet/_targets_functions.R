@@ -99,6 +99,19 @@ join_survey_data <- function(meetnetdesign, meetnet_data) {
     )
 }
 
+filter_survey_data <- function(
+  svydata,
+  ifbl_remove,
+  min_n_taxa
+) {
+  svydata |>
+    dplyr::filter(
+      !(ifbl %in% ifbl_remove),
+      n() >= min_n_taxa,
+      .by = c(ifbl, cyclus_jaar, group, cyclus, jaar)
+    )
+}
+
 # ---- Taxon clustering (subspecies/varieties -> main species) --------------
 
 build_soortenlijst <- function(svydata_ap) {
@@ -124,16 +137,17 @@ cluster_taxon_names <- function(soortenlijst) {
 build_svydata_clustered <- function(svydata_ap, names_clustered) {
   svydata_ap |>
     dplyr::select(
-      group, ifbl, cyclus_jaar, cyclus, jaar, pop_size,
+      group, ifbl, cyclus_jaar, cyclus, jaar, maand, pop_size,
       sample_size_panel, sample_size_cyclus, weight_cyclus, weight_panel,
       parent_naam_wetenschappelijk
     ) |>
     dplyr::left_join(
-      names_clustered |> dplyr::select(parent_naam_wetenschappelijk, clustertaxon),
+      names_clustered |>
+        dplyr::select(parent_naam_wetenschappelijk, clustertaxon),
       by = "parent_naam_wetenschappelijk"
     ) |>
     dplyr::distinct(
-      group, ifbl, cyclus_jaar, cyclus, jaar, pop_size,
+      group, ifbl, cyclus_jaar, cyclus, jaar, maand, pop_size,
       sample_size_panel, sample_size_cyclus, weight_cyclus, weight_panel,
       clustertaxon
     )
@@ -146,8 +160,7 @@ build_svydata_wide <- function(svydata_ap_clustered) {
       names_from = clustertaxon,
       values_from = value,
       values_fill = 0
-    ) |>
-    dplyr::select(-`NA`)
+    )
 }
 
 get_species_list <- function(svydata_ap_clustered) {
@@ -295,19 +308,37 @@ plot_change_stratum <- function(change_stratum_results) {
       !is.na(abs_significance),
       abs(change) > 1e-3
     ) |>
-    dplyr::mutate(species = tidytext::reorder_within(species, change, group)) |>
-    ggplot2::ggplot() +
-    ggplot2::geom_vline(xintercept = 0, linetype = "dashed", color = "gray50") +
-    ggplot2::geom_pointrange(
-      ggplot2::aes(
-        x = change, xmin = lcl, xmax = ucl, y = species,
-        colour = abs_significance
+    tidyr::nest(.by = group) |>
+    dplyr::mutate(
+      data = purrr::map(
+        data, \(x) x |> dplyr::mutate(species = reorder(species, change))
       )
-    ) +
-    ggplot2::scale_x_continuous(labels = scales::percent_format()) +
-    tidytext::scale_y_reordered() +
-    ggplot2::facet_wrap(~group, scales = "free", space = "free_y") +
-    ggplot2::labs(x = "Absolute wijziging", y = "Soort")
+    )
+
+  p <- p |>
+    dplyr::mutate(
+      plots = purrr::map2(
+        .x = data,
+        .y = group,
+        .f = \(x, y) {
+          ggplot2::ggplot(data = x) +
+            ggplot2::geom_vline(
+              xintercept = 0, linetype = "dashed", color = "gray50"
+            ) +
+            ggplot2::geom_pointrange(
+              ggplot2::aes(
+                x = change, xmin = lcl, xmax = ucl, y = species,
+                colour = abs_significance
+              )
+            ) +
+            ggplot2::scale_x_continuous(labels = scales::percent_format()) +
+            ggplot2::labs(
+              title = y,
+              x = "Absolute wijziging", y = "Soort"
+            )
+        }
+      )
+    )
   return(p)
 }
 
@@ -448,24 +479,39 @@ plot_rel_change_stratum <- function(rel_change_results_stratum) {
       rel_change_type %in% c("Daling", "Stijging")
     ) |>
     dplyr::mutate(
-      ratio = rel_change + 1, lcl_ratio = lcl + 1, ucl_ratio = ucl + 1,
-      species = tidytext::reorder_within(species, rel_change, group)
+      ratio = rel_change + 1, lcl_ratio = lcl + 1, ucl_ratio = ucl + 1
     ) |>
-    ggplot2::ggplot() +
-    ggplot2::geom_vline(xintercept = 1, linetype = "dashed", color = "gray50") +
-    ggplot2::geom_pointrange(
-      ggplot2::aes(x = ratio, xmin = lcl_ratio, xmax = ucl_ratio, y = species,
-                   colour = rel_significance)
-    ) +
-    ggplot2::scale_x_log10(
-      name = "Relatieve wijziging (Index)",
-      breaks = c(1/50, 1/20, 1/10, 1/2, 1/5, 1, 2, 5, 10, 20, 50),
-      labels = c("x1/50", "x1/20", "x1/10", "x1/2", "x1/5", "x1",
-                 "x2", "x5", "x10", "x20", "x50")
-    ) +
-    tidytext::scale_y_reordered() +
-    ggplot2::facet_wrap(~group, scales = "free", space = "free_y") +
-    ggplot2::labs(x = "Relatieve wijziging", y = "Soort")
+    tidyr::nest(.by = group) |>
+    dplyr::mutate(
+      data = purrr::map(data, \(x) x |> dplyr::mutate(species = reorder(species, rel_change)))
+    )
+
+  p <- p |>
+    dplyr::mutate(
+      plots = purrr::map2(
+        .x = data,
+        .y = group,
+        .f = \(x, y) {
+          ggplot2::ggplot(data = x) +
+            ggplot2::geom_vline(
+              xintercept = 1, linetype = "dashed", color = "gray50"
+            ) +
+            ggplot2::geom_pointrange(
+              ggplot2::aes(
+                x = ratio, xmin = lcl_ratio, xmax = ucl_ratio, y = species,
+                colour = rel_significance)
+            ) +
+            ggplot2::scale_x_log10(
+              name = "Relatieve wijziging (Index)",
+              breaks = c(1/50, 1/20, 1/10, 1/2, 1/5, 1, 2, 5, 10, 20, 50),
+              labels = c("x1/50", "x1/20", "x1/10", "x1/2", "x1/5", "x1",
+                         "x2", "x5", "x10", "x20", "x50")
+            ) +
+            ggplot2::labs(title = y) +
+            ggplot2::labs(x = "Relatieve wijziging", y = "Soort")
+        }
+      )
+    )
 
   return(p)
 }
