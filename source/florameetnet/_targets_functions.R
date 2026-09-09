@@ -127,11 +127,22 @@ build_soortenlijst <- function(svydata_ap) {
 cluster_taxon_names <- function(soortenlijst) {
   rgbif::name_parse(soortenlijst$parent_naam_wetenschappelijk) |>
     tibble::as_tibble() |>
-    dplyr::select(
-      parent_naam_wetenschappelijk = scientificname,
-      genusorabove, specificepithet
+    mutate(
+      clustertaxon = case_when(
+        rankmarker == "sp." ~ canonicalnamewithmarker,
+        # merge subsp to sp
+        rankmarker %in% c("subsp.", "var.") ~
+          paste(genusorabove, specificepithet),
+        rankmarker %in% c("infrasp.") ~ canonicalnamecomplete,
+        rankmarker %in% c("sect.", "subgen.", "subsect.") ~
+          paste(canonicalname, canonicalnamewithmarker),
+        rankmarker %in% c("morph") ~ scientificname,
+        TRUE ~ NA_character_
+      )
     ) |>
-    dplyr::mutate(clustertaxon = paste(genusorabove, specificepithet))
+    dplyr::rename(
+      parent_naam_wetenschappelijk = scientificname
+    )
 }
 
 build_svydata_clustered <- function(svydata_ap, names_clustered) {
