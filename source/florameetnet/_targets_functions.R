@@ -125,7 +125,7 @@ build_soortenlijst <- function(svydata_ap) {
 }
 
 cluster_taxon_names <- function(soortenlijst) {
-  rgbif::name_parse(soortenlijst$parent_naam_wetenschappelijk) |>
+  ct <- rgbif::name_parse(soortenlijst$parent_naam_wetenschappelijk) |>
     tibble::as_tibble() |>
     mutate(
       clustertaxon = case_when(
@@ -143,6 +143,24 @@ cluster_taxon_names <- function(soortenlijst) {
     dplyr::rename(
       parent_naam_wetenschappelijk = scientificname
     )
+  specialcases <- ct |>
+    filter(grepl("kruis|groep|group", clustertaxon)) |>
+    select(clustertaxon) |>
+    mutate(
+      from_name = gsub(pattern = "\\sgroep|\\skruisingen", "",clustertaxon)
+    ) |>
+    rename(to_name = clustertaxon) |>
+    distinct()
+
+  ct_ <- ct |>
+    left_join(specialcases, by = join_by(clustertaxon == from_name)) |>
+    mutate(
+      clustertaxon = ifelse(!is.na(to_name), to_name, clustertaxon)
+    ) |>
+    select(-to_name)
+
+  return(ct_)
+
 }
 
 build_svydata_clustered <- function(svydata_ap, names_clustered) {
