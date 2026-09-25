@@ -1,0 +1,75 @@
+---
+toc: false
+editor:
+  markdown:
+    wrap: sentence
+---
+
+# Materiaal en methoden
+
+```{r}
+#| label: setup
+#| include: false
+library(targets)
+library(sf)
+library(ggplot2)
+```
+
+## Meetnetontwerp
+
+Het florameetnet algemene planten is gestoeld op een methode voor het systematisch inventariseren van planten, mossen en zwammen in zogenaamde kwartierhokken (dit zijn hokken van 1 km x 1 km).
+Voor België, Groothertogdom Luxemburg en Noord-Frankrijk werd door het Institut Floristique Belgo-Luxembourgeois (IFBL) hiervoor het IFBL-raster ontwikkeld.
+Deze inventarisaties worden in eerste instantie gebruikt voor atlasprojecten, die als hoofddoel hebben om verspreidingsatlassen van geïnventariseerde soorten te maken.
+Hiervoor worden gegevens verzameld over meerdere decennia (typisch 30 jaar) samengevoegd om zo een goed beeld te krijgen van de ruimtelijke verspreiding van een soort.
+
+Om een beter inzicht te krijgen in trends van algemene plantensoorten, ontwikkelden @vanlanduyt2015 een meetnet dat beter toelaat om veranderingen te detecteren.
+Hiertoe werd een gestratificeerde steekproef getrokken waarvan de steekproefeenheden in een cyclisch roterend vijfjaarlijks herbezoekschema bezocht worden.
+De steekproefeenheid voor dit meetnet is opnieuw een km-hok en de meetmethode is dezelfde als voor de atlasprojecten gebruikt wordt.
+In een km-hok worden de belangrijkste biotopen bezocht en alle waargenomen plantensoorten worden genoteerd.
+De stratificatie maakt gebruik van negen fytogeografische klassen, die berekend werden door @vanlanduyt2011 op basis van een clustering van de plantensoorten in goed onderzochte km-hokken.
+Doordat deze klasse-labels niet voor alle km-hokken gekend zijn, zie @fig-stratificatie, is het steekproefkader beperkt tot deze goed onderzochte hokken en wijkt het af van de doelpopulatie.
+De doelpopulatie is alle km-hokken van Vlaanderen (en bij uitbreiding het Brussels Hoofdstedelijk Gewest).
+Welk effect deze mismatch tussen steekproefkader en doelpopulatie heeft op eventuele vertekening van de trends is niet gekend.
+Uit elk van de negen strata werden 50 km-hokken aselect getrokken (450 hokken in totaal) en in aselecte groepen van 10 km-hokken verdeeld zodat elk jaar 10 km-hokken uit een stratum bezocht kunnen worden (zie @fig-steekproef).
+De meetnetcyclus heeft dus een totale duur van 5 jaar met in elk jaar 1/5 van de km-hokken die bezocht worden (90 km-hokken, 10 per stratum).
+In jaar $t + 5$ worden dezelfde hokken van jaar $t$ herbezocht.
+Ondertussen zijn twee cycli achter de rug.
+De eerste cyclus starte in 2015 en eindigde in 2019.
+De tweede cyclus startte in 2020 en eindigde in 2025 (de km-hokken van 2019, jaar 5 binnen een cyclus, werden zes jaar later bezocht in 2025 in plaats van 5 jaar later).
+
+
+
+
+```{r}
+#| label: fig-stratificatie
+#| fig-cap: De clustering in fytogeografische klassen volgens @vanlanduyt2011 werd gebruikt als basis voor de stratificatie van het florameetnet. De klasselabels konden enkel worden toegekend aan "goed onderzochte" km-hokken. Dit zijn hokken die meer dan 100 verschillende soorten vaatplanten hadden. 
+tar_read(fig_stratificatie)
+```
+
+```{r}
+#| label: fig-steekproef
+#| fig-cap: Ligging van de km-hokken uit de steekproef. Per jaar wordt 1/5de van de hokken bezocht, wat neerkomt op 10 hokken per stratum. Na een volledige cyclus zijn er 450 km-hokken bezocht.
+tar_read(fig_steekproef)
+```
+
+
+## Berekening van de verandering tussen twee cycli en tussen jaren
+
+We gebruiken het R package `ReGenesees` om de steekproefschatters voor toestand en trend te berekenen.
+De eerste stap is het definiëren van een steekproefontwerp R object.
+Het steekproefontwerp vereist dat we het km-hok gebruiken als primaire steekproefeenheid.
+Elk km-hok heeft een unieke identificatie waardoor waarnemingen uit verschillende jaren van eenzelfde km-hok aan elkaar gekoppeld kunnen worden.
+De software gaat hierdoor formules gebruiken die rekening houden met de correlatie tussen verschillende cycli.
+Verder geven we de variabele die codeert voor de fytogeografische klassen mee om de strata te identificeren.
+Tot slot berekenen we de steekproefgewichten, die verschillend zijn per stratum.
+We berekenen enerzijds gewichten voor inferentie per cyclus als het aantal km-hokken in een phytogeografisch stratum (de "populatiegrootte") gedeeld door de steekproefgrootte in het stratum (n = 50).
+Analoog voor inferentie per jaar, delen we door de steekproefgrootte in het stratum in dat jaar (n = 10).
+We gebruiken geen eindige populatiecorrectiefactor omdat het steekproefkader enkel bestaat uit "goed onderzochte" km-hokken terwijl we voor de andere km-hokken niet weten tot welk stratum ze behoren.
+Dit geeft conservatieve steekproeffouten en betrouwbaarheidsintervallen.
+
+## Voorbehandeling van de waarnemingen
+
+Alle waarnemingen van vaatplanten voor de km-hok en jaar combinaties van de twee steekproefcycli werden ingelezen uit de floradatabank.
+Ondersoorten en variëteiten werden omgezet naar de hoofdsoort en de data werden geaggregeerd op dit niveau.
+
+
